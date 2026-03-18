@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gruppechat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: #0c0c0c;
+      color: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HEADER */
+    header {
+      height: 52px;
+      border-bottom: 1px solid #1a1a1a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      flex-shrink: 0;
+    }
+
+    .wordmark {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .you-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: #3a3a3a;
+      letter-spacing: .06em;
+    }
+
+    .you-label span { color: #666; }
+
+    .leave-btn {
+      background: none;
+      border: none;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .08em;
+      color: #333;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: color .15s;
+    }
+
+    .leave-btn:hover { color: #888; }
+
+    /* MESSAGES */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #messages::-webkit-scrollbar { width: 3px; }
+    #messages::-webkit-scrollbar-track { background: transparent; }
+    #messages::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+
+    /* Date divider */
+    .date-div {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: #282828;
+      margin: 16px 0 8px;
+      text-align: center;
+    }
+
+    /* Message row */
+    .msg-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 68%;
+      animation: fadeUp .18s ease-out;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-row.me {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .msg-row.them { align-self: flex-start; }
+
+    .msg-meta {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: #2e2e2e;
+      margin-bottom: 4px;
+      padding: 0 2px;
+      letter-spacing: .04em;
+    }
+
+    .msg-row.me .msg-meta { display: none; }
+
+    .bubble {
+      padding: 10px 14px;
+      font-size: 14.5px;
+      line-height: 1.5;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .me .bubble {
+      background: #fff;
+      color: #0c0c0c;
+    }
+
+    .them .bubble {
+      background: #161616;
+      color: #d0d0d0;
+      border: 1px solid #1e1e1e;
+    }
+
+    .msg-time {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9.5px;
+      color: #252525;
+      margin-top: 3px;
+      padding: 0 2px;
+    }
+
+    /* Empty */
+    .empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .1em;
+      color: #222;
+      text-transform: uppercase;
+    }
+
+    /* INPUT */
+    .input-area {
+      border-top: 1px solid #1a1a1a;
+      padding: 14px 20px 18px;
+      display: flex;
+      align-items: flex-end;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+
+    #msgInput {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #222;
+      outline: none;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 15px;
+      color: #fff;
+      caret-color: #fff;
+      resize: none;
+      padding-bottom: 10px;
+      max-height: 100px;
+      line-height: 1.45;
+      transition: border-color .2s;
+    }
+
+    #msgInput::placeholder { color: #252525; }
+    #msgInput:focus { border-color: #333; }
+
+    .send-btn {
+      background: none;
+      border: none;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 18px;
+      color: #333;
+      cursor: pointer;
+      padding: 0 0 8px;
+      transition: color .15s;
+      line-height: 1;
+    }
+
+    .send-btn:hover { color: #fff; }
+    .send-btn:disabled { color: #1e1e1e; cursor: not-allowed; }
+
+    /* Loading */
+    #loadOverlay {
+      position: fixed;
+      inset: 0;
+      background: #0c0c0c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: #1e1e1e;
+    }
+
+    @media (max-width: 480px) {
+      .msg-row { max-width: 88%; }
+      .you-label { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loadOverlay">Laster</div>
+
+<header>
+  <div class="wordmark">gruppechat</div>
+  <div class="header-right">
+    <div class="you-label">du er → <span id="headerName"></span></div>
+    <button class="leave-btn" onclick="leave()">Forlat</button>
+  </div>
+</header>
+
+<div id="messages">
+  <div class="empty" id="emptyState">Ingen meldinger ennå</div>
+</div>
+
+<div class="input-area">
+  <textarea id="msgInput" placeholder="Skriv noe…" rows="1" oninput="resize(this)"></textarea>
+  <button class="send-btn" id="sendBtn" onclick="send()">→</button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+
+  const chatName  = localStorage.getItem('chatName');
+  const chatEmail = localStorage.getItem('chatEmail');
+
+  if (!chatName) window.location.href = 'index.html';
+
+  document.getElementById('headerName').textContent = chatName;
+
+  let myUid = null;
+  let unsub  = null;
+  let lastDate = null;
+
+  auth.onAuthStateChanged(u => {
+    if (!u) { window.location.href = 'index.html'; return; }
+    myUid = u.uid;
+    document.getElementById('loadOverlay').style.display = 'none';
+    listen();
+  });
+
+  function formatTime(ts) {
+    if (!ts) return '';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function dateLabel(ts) {
+    if (!ts) return null;
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    const today     = new Date();
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === today.toDateString())     return 'i dag';
+    if (d.toDateString() === yesterday.toDateString()) return 'i går';
+    return d.toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function resize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+  }
+
+  function addMessage(doc) {
+    const data = doc.data();
+    const msgs = document.getElementById('messages');
+    const empty = document.getElementById('emptyState');
+    if (empty) empty.remove();
+
+    const dl = dateLabel(data.timestamp);
+    if (dl && dl !== lastDate) {
+      lastDate = dl;
+      const div = document.createElement('div');
+      div.className = 'date-div';
+      div.textContent = dl;
+      msgs.appendChild(div);
+    }
+
+    const isMe = data.uid === myUid;
+    const row  = document.createElement('div');
+    row.className = 'msg-row ' + (isMe ? 'me' : 'them');
+    row.dataset.id = doc.id;
+
+    row.innerHTML = `
+      ${!isMe ? `<div class="msg-meta">${escHtml(data.name || '?')}</div>` : ''}
+      <div class="bubble">${escHtml(data.text || '')}</div>
+      <div class="msg-time">${formatTime(data.timestamp)}</div>
+    `;
+
+    msgs.appendChild(row);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function listen() {
+    if (unsub) unsub();
+    unsub = db.collection('messages')
+      .orderBy('timestamp', 'asc')
+      .limitToLast(120)
+      .onSnapshot(snap => {
+        snap.docChanges().forEach(ch => {
+          if (ch.type === 'added' && !document.querySelector(`[data-id="${ch.doc.id}"]`)) {
+            addMessage(ch.doc);
+          }
+        });
+      });
+  }
+
+  async function send() {
+    const input = document.getElementById('msgInput');
+    const text  = input.value.trim();
+    if (!text || !myUid) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+
+    try {
+      await db.collection('messages').add({
+        text,
+        name:      chatName,
+        email:     chatEmail || '',
+        uid:       myUid,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function leave() {
+    if (unsub) unsub();
+    localStorage.removeItem('chatName');
+    localStorage.removeItem('chatEmail');
+    auth.signOut().then(() => { window.location.href = 'index.html'; });
+  }
+
+  document.getElementById('msgInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+</script>
+</body>
+</html>

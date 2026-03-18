@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gruppechat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: #0c0c0c;
+      color: #f0f0f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .wrap { width: 100%; max-width: 380px; }
+
+    .wordmark {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 64px;
+    }
+
+    h1 {
+      font-weight: 300;
+      font-size: 34px;
+      color: #fff;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .sub {
+      font-size: 14px;
+      color: #484848;
+      margin-bottom: 48px;
+      line-height: 1.5;
+    }
+
+    .field-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #444;
+      margin-bottom: 12px;
+    }
+
+    .email-row {
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #222;
+      padding-bottom: 14px;
+      margin-bottom: 12px;
+      transition: border-color .2s;
+    }
+
+    .email-row:focus-within { border-color: #fff; }
+
+    .email-row input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 17px;
+      color: #fff;
+      caret-color: #fff;
+    }
+
+    .email-row input::placeholder { color: #282828; }
+
+    .suffix {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+      color: #2c2c2c;
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .preview {
+      height: 18px;
+      margin-bottom: 40px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11.5px;
+      color: #3a3a3a;
+      opacity: 0;
+      transition: opacity .2s;
+    }
+
+    .preview.show { opacity: 1; }
+    .preview span { color: #888; }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      background: #fff;
+      color: #0c0c0c;
+      border: none;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+
+    .btn:hover { background: #ddd; }
+    .btn:active { background: #bbb; }
+    .btn:disabled { opacity: .2; cursor: not-allowed; background: #fff; }
+
+    .err {
+      display: none;
+      margin-top: 16px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: #666;
+      letter-spacing: .04em;
+    }
+
+    .err.show { display: block; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="wordmark">gruppechat</div>
+
+  <h1>Hvem er du?</h1>
+  <p class="sub">Skriv inn skole-e-posten din for å gå inn.</p>
+
+  <div class="field-label">E-post</div>
+  <div class="email-row">
+    <input
+      type="text"
+      id="emailInput"
+      placeholder="fornavn.etternavn"
+      autocomplete="off"
+      spellcheck="false"
+      oninput="onInput()"
+    />
+    <span class="suffix">@bergensskolen.com</span>
+  </div>
+
+  <div class="preview" id="preview">→ Du vises som <span id="nameSpan"></span></div>
+
+  <button class="btn" id="enterBtn" onclick="enter()" disabled>Gå inn →</button>
+  <div class="err" id="errMsg"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
+  // If already "logged in" (anonymous), go straight to chat
+  auth.onAuthStateChanged(u => {
+    if (u && localStorage.getItem('chatName')) {
+      window.location.href = 'chat.html';
+    }
+  });
+
+  function getFirstName(prefix) {
+    const part = prefix.trim().split('.')[0];
+    if (!part) return '';
+    return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+  }
+
+  function onInput() {
+    const val = document.getElementById('emailInput').value.trim();
+    const firstName = getFirstName(val);
+    const hasDot = val.includes('.');
+    const preview = document.getElementById('preview');
+    const nameSpan = document.getElementById('nameSpan');
+    const btn = document.getElementById('enterBtn');
+
+    if (firstName && hasDot) {
+      nameSpan.textContent = firstName;
+      preview.classList.add('show');
+      btn.disabled = false;
+    } else {
+      preview.classList.remove('show');
+      btn.disabled = true;
+    }
+    document.getElementById('errMsg').classList.remove('show');
+  }
+
+  async function enter() {
+    const prefix = document.getElementById('emailInput').value.trim();
+    if (!prefix || !prefix.includes('.')) return;
+    const firstName = getFirstName(prefix);
+    const btn = document.getElementById('enterBtn');
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+      await auth.signInAnonymously();
+      localStorage.setItem('chatName', firstName);
+      localStorage.setItem('chatEmail', prefix + '@bergensskolen.com');
+      window.location.href = 'chat.html';
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Gå inn →';
+      const err = document.getElementById('errMsg');
+      err.textContent = '! Feil – sjekk Firebase-oppsettet ditt.';
+      err.classList.add('show');
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') enter();
+  });
+</script>
+</body>
+</html>
