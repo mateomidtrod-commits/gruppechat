@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gruppechat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: #f7f6f3;
+      color: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e4e2de;
+      padding: 40px 36px 36px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .wordmark {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: #111;
+      margin-bottom: 32px;
+      display: block;
+    }
+
+    label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #888;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1.5px solid #d8d6d2;
+      outline: none;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 16px;
+      color: #111;
+      padding: 8px 0 10px;
+      transition: border-color .2s;
+    }
+
+    input[type="text"]:focus { border-color: #999; }
+    input[type="text"]::placeholder { color: #ccc; }
+
+    .btn {
+      margin-top: 28px;
+      width: 100%;
+      background: #111;
+      color: #fff;
+      border: none;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      padding: 13px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    .btn:hover { background: #333; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    .current-name {
+      margin-top: 20px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: #999;
+      letter-spacing: .06em;
+    }
+
+    .current-name span { color: #333; }
+
+    .notice {
+      margin-top: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: #bbb;
+      letter-spacing: .06em;
+    }
+
+    .err {
+      margin-top: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: #c0392b;
+      letter-spacing: .04em;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <span class="wordmark">gruppechat</span>
+
+  <label for="nameInput" id="nameLabel">Velg et navn</label>
+  <input type="text" id="nameInput" placeholder="Ditt navn…" maxlength="32" autocomplete="off" />
+
+  <div class="err" id="errMsg" style="display:none;"></div>
+  <div class="notice" id="noticeMsg" style="display:none;"></div>
+
+  <button class="btn" id="joinBtn" onclick="join()">Bli med →</button>
+
+  <div class="current-name" id="currentNameInfo" style="display:none;">
+    Innlogget som <span id="currentNameSpan"></span>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const existingName = localStorage.getItem('chatName');
+  const lastChange   = localStorage.getItem('nameChangeDate');
+  const changedToday = lastChange === TODAY;
+
+  if (existingName) {
+    document.getElementById('nameLabel').textContent = 'Bytt navn';
+    document.getElementById('nameInput').placeholder = existingName;
+    document.getElementById('currentNameInfo').style.display = 'block';
+    document.getElementById('currentNameSpan').textContent = existingName;
+
+    if (changedToday) {
+      document.getElementById('nameInput').disabled = true;
+      document.getElementById('joinBtn').disabled = true;
+      document.getElementById('noticeMsg').style.display = 'block';
+      document.getElementById('noticeMsg').textContent = 'Du kan bare bytte navn én gang om dagen.';
+      document.getElementById('nameLabel').textContent = 'Navn (kan ikke byttes i dag)';
+    } else {
+      document.getElementById('noticeMsg').style.display = 'block';
+      document.getElementById('noticeMsg').textContent = 'Du kan bytte navn én gang om dagen.';
+    }
+  }
+
+  auth.onAuthStateChanged(u => {
+    if (u && existingName) {
+      window.location.href = 'chat.html';
+    }
+  });
+
+  function join() {
+    const input = document.getElementById('nameInput');
+    const name  = input.value.trim();
+    const err   = document.getElementById('errMsg');
+    err.style.display = 'none';
+
+    if (!name && !existingName) {
+      err.textContent = 'Du må skrive inn et navn.';
+      err.style.display = 'block';
+      return;
+    }
+
+    const finalName = name || existingName;
+    if (!finalName) return;
+
+    if (name && existingName && changedToday) {
+      err.textContent = 'Du kan bare bytte navn én gang om dagen.';
+      err.style.display = 'block';
+      return;
+    }
+
+    if (name && existingName && name !== existingName) {
+      localStorage.setItem('nameChangeDate', TODAY);
+    }
+
+    localStorage.setItem('chatName', finalName);
+
+    auth.signInAnonymously().catch(e => {
+      console.error(e);
+      err.textContent = 'Pålogging feilet. Prøv igjen.';
+      err.style.display = 'block';
+    }).then(result => {
+      if (result && result.user) {
+        // Register user in Firestore
+        return db.collection('users').doc(result.user.uid).set({
+          uid: result.user.uid,
+          name: finalName,
+          active: false,
+          joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+    }).then(() => {
+      window.location.href = 'chat.html';
+    });
+  }
+
+  document.getElementById('nameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') join();
+  });
+</script>
+</body>
+</html>
